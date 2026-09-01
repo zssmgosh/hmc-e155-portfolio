@@ -1,0 +1,16 @@
+---
+title: "E155 Portfolio"
+image: images/headshot.jpeg
+about:
+    template: jolla
+    links: 
+        - icon: linkedin
+          text: LinkedIn
+          href: https://www.linkedin.com/in/huanhuan--huang/
+        - icon: github
+          text: GitHub
+          href: https://github.com/zssmgosh
+---
+
+Huanhuan Huang is a senior engineering major at Harvey Mudd College interested in electrical and computer engineering. In my free time, I enjoy playing badminton and collecting blind boxes.
+
