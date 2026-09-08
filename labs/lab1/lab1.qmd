@@ -1,5 +1,8 @@
 ---
 title: "E155 Lab 1: Building a 7 Segment Display"
+description: Lab Report for E155 Lab 1
+author: Huanhuan Huang
+date: 9/7/2026
 ---
 
 # Introduction
