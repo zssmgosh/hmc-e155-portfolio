@@ -8,7 +8,9 @@
   {
     "listing": "/lab.html",
     "items": [
+      "/labs/lab4/lab4.html",
       "/labs/lab2/lab2.html",
+      "/labs/lab3/lab3.html",
       "/labs/lab1/lab1.html"
     ]
   }
