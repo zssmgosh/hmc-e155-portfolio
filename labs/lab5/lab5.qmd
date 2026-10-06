@@ -1,5 +1,5 @@
 ---
-title: "E155 Lab 5: Digital Audio"
+title: "E155 Lab 5: Motor Reading"
 description: Lab Report for E155 Lab 5
 author: Huanhuan Huang
 date: 10/4/2026
