@@ -7,10 +7,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Huanhuan Huang">
-<meta name="dcterms.date" content="2026-09-14">
-<meta name="description" content="Lab Report for E155 Lab 2">
+<meta name="dcterms.date" content="2026-11-02">
+<meta name="description" content="Lab Report for E155 Lab 3">
 
-<title>E155 Lab 2: Multiplexed 7-Segment Display – E155 Portfolio</title>
+<title>E155 Lab 3: Keypad Scanner – E155 Portfolio</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -169,12 +169,12 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">E155 Lab 2: Multiplexed 7-Segment Display</h1>
+<h1 class="title">E155 Lab 3: Keypad Scanner</h1>
 </div>
 
 <div>
   <div class="description">
-    Lab Report for E155 Lab 2
+    Lab Report for E155 Lab 3
   </div>
 </div>
 
@@ -191,7 +191,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 14, 2026</p>
+      <p class="date">November 2, 2026</p>
     </div>
   </div>
   
@@ -209,13 +209,25 @@ window.Quarto = {
 </section>
 <section id="design-and-testing-methodology" class="level1">
 <h1>Design and Testing Methodology</h1>
-<p>The RTL was structured as a top level module that inherited from three submodules: a display, a counter, and a scanner module. The display module and counter modules were reused from the previous lab. The scanner module created an instance of a counter that controlled which rows of the keypad were active so that in each 2Hz cycle, all four rows would be ON once. This required modifying the counter module to output the count so that each cycle could be divided evenly. Since the high speed oscillator was at 48MHz but the desired blinking frequency is 2Hz, the counter had to count to 24,000,000 oscillator cycles. Using the same math as the previous lab, the count was determined using the following calculation.</p>
-<p><span class="math display">\[ \frac{1}{2Hz} = N \cdot \frac{1}{48MHz}\]</span> <span class="math display">\[N = 24000000\]</span></p>
-<p>By being able to see the count, we can determine which LED is ON at a time by looking at whether the current count is under 3million, between 3 and 6 million, between 6 and 9 million, or greater than 9 million.</p>
-<p>Two testbenches were written, one for the top level module, and one for the scanner module. The scanner module checked that when enabled, there was always one row that was ON, and that each row was ON for 0.5s/4 or 0.125 seconds. The reset and enables were also tested. The top level module checked that the two anode pins that turn the two displays ON or OFF continuously switched along with the value that was being driven on the segment pins. The top level module also tested to ensure that the scanner works inside the top level module. Column values were also fed into the top level module and controlled whether LEDs turned on in response to a key press on the keypad, so LED values were also tested.</p>
+<p>The RTL was structured as a top level module that uses two synchronizers for the rows and column data, a series of shift registers for debouncing column input from the keypad, a 2 communicating FSMs for key pressing logic, and a time multiplexed display.</p>
+<p>For this lab, the multiplexing frequency was kept the same by using a counter that would count to 100000, toggle, count to 100000, and then toggle again, which meant that the multiplexing frequency was 240Hz. <span class="math display">\[ \frac{1}{200000 \cdot \frac{1}{48MHz}} = 240Hz\]</span></p>
+<p>The clock for the entire keypad logic used a counter that counted to 250000 using the 48MHz high speed oscillator, which meant the clock speed was 960Hz.</p>
+<p><span class="math display">\[ \frac{1}{50000 \cdot \frac{1}{48MHz}} = 960Hz\]</span></p>
+<p>To keep the values of the counter in the scanner nice, the counter for the scanner circuit counted to 12 so that for each row, there were 3 clock cycles of time for sampling column and row data. This meant the scanning frequency (where one cycle means all 4 rows were scanned) was 80Hz.</p>
+<p>Testbenches were written for all new or changed modules which meant 10 new testbenches (9 new ones and 1 for counter which was changed according to feedback).</p>
 <p>Since we needed to control the dual seven segment display, I wired it up on a breadboard where the breadboard module was placed. The actual segment pins all were connected from the adapter pin to the segment pin using a resistor and jumper wires.</p>
 <p>To turn the anodes ON or OFF, the anode output pins from the breadboard module were each connected to the base of a PNP transistor. The collector of the PNPs were connected to 3.3V and the emitter was connected to the anode pins of the display. The base of the PNPs were connected to resistors that connected back to the FPGA for the anode outputs.</p>
 <p>For the keypad circuit, I connected the scanner row output to resistors that connected to the base of NPN transistors which can be 3.3V, and the emitter is connected to ground. The emitters were grounded, and the collectors had internal pullup. The collector nodes were then connected to the row pins of the keypad, and the column pins were connected back to the FPGA where they would be used to control LEDs.</p>
+<p>For the debouncing strategy, I chose to use a series of shift registers that would provide multiple copies of the column input given that comes from the keypad. Since wobble and uneven presses could lead to bits of noise, we debounce that, and using shift registers, we get to see multiple copies of whether a button was pressed or not. To determine whether a change in button status has occurred, I compared all saved values of the columns across the registers, and if they all agreed, that means there is a meaningful and intentional change in keypad behavior.</p>
+<p><img src="images/lab3_block_diagram.jpg" class="img-fluid" alt="debouncer"> After debouncing, I used the rows and columns in a series of 4 4-bit enabled flip flops to build a 16 bit keymap where each bit of the keymap corresponded to a button on the keypad. If a button was pressed, then the value is 1, and vice versa. I used 4 flip flops because the scanner circuit could output a count value that can then be used to determine a safe time to sample the row and column values for building the keymap. At most one flipflop would be enabled, because the enable of a flipflop would be whether the correspondin row was being sampled at the moment. This ensured that the keymap was registering the right column values for the right row.</p>
+<p>Since we require that the first button pressed and the last button released all register values, but any buttons pressed in between are not, I used 2 communicating FSMs. One FSM contained most of the actual button logic depicted below. The other FSM was used to save a copy of the keymap when it was first registered that a keypress had occurred. The main FSM could ask the other FSM to save a copy of the keymap as well as provide the saved copy back to it.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/fsm.png" class="img-fluid figure-img"></p>
+<figcaption>FSM</figcaption>
+</figure>
+</div>
+<p>Since there are two displays, and we wanted the more recently pressed value to show up on the right side, a register was used to pass on the value from the right display to the left display the moment a new displayable button press was found.</p>
 </section>
 <section id="technical-documentation" class="level1">
 <h1>Technical Documentation</h1>
@@ -234,7 +246,7 @@ window.Quarto = {
 <div class="callout-body-container callout-body">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="images/lab2_block_diagram.jpg" class="img-fluid figure-img"></p>
+<p><img src="images/lab3_block_diagram.jpg" class="img-fluid figure-img"></p>
 <figcaption>block_diagram</figcaption>
 </figure>
 </div>
@@ -253,39 +265,212 @@ window.Quarto = {
 </div>
 <div id="callout-2" class="callout-2-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p><img src="images/lab2_display_schematic.jpg" class="img-fluid" alt="schematic"> <img src="images/lab2_keypad_schematic.jpg" class="img-fluid" alt="schematic"></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/lab3_schematic.png" class="img-fluid figure-img"></p>
+<figcaption>schematic</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </div>
 </section>
 <section id="results-and-discussion" class="level1">
 <h1>Results and Discussion</h1>
-<p>The time multiplexing dual segment display and the keypad scanner circuit both meet their objectives. The LEDs for the scanner circuit complete a cycle of rotations at 2Hz, or each LED is on for 0.125s before switching to the next. The time multiplexing circuit is flashing fast enough that it looks as if both are always on, and they are not bleeding into each other.</p>
+<p>The whole circuit meets its objectives and saitsfy requirements. When a key is pressed while no other keys are actively pressed, the value of that key is displayed on the 7 segment on the right display. While that key is held down, any other presses do not change what is displayed on the 7 segment. If that key is let go while other keys are being pressed, the display still does not change until there is only one key left being pressed.</p>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Testbench waveform results
+<span class="screen-reader-only">Note</span>count to toggle waveform results
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
 <div id="callout-3" class="callout-3-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p><img src="images/scanner_waveform.png" class="img-fluid" alt="scanner_waveform"> <img src="images/lab2_col_led_waveform.png" class="img-fluid" alt="lab2_col_led_waveform"> <img src="images/lab2_scanner_waveform.png" class="img-fluid" alt="lab2_scanner_waveform"> <img src="images/lab2_time_multiplex_waveform.png" class="img-fluid" alt="lab2_time_multiplex_waveform"></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/count_to_toggle_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>count_to_toggle_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>counter waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/counter_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>counter_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>debouncer waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><img src="images/debouncer1_waveform.png" class="img-fluid" alt="debouncer1_waveform"> <img src="images/debouncer2_waveform.png" class="img-fluid" alt="debouncer2_waveform"></p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>enabled flipflop waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/flop_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>flop_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>keymap to key waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/keymap_to_key_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>keymap_to_key_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>keymap waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/keymap_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>keymap_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>keypress FSM waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-9" class="callout-9-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/keypress_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>keypress_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>snapshot FSM waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/snapshot_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>snapshot_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>synchronizer waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/sync_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>sync_waveform</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </div>
 </section>
 <section id="conclusion" class="level1">
 <h1>Conclusion</h1>
-<p>This lab took roughly SO MANY HOURS. I NEED TO COMMIT MORE RAHHHHHHH</p>
+<p>I did approach this lab initially with a different implementation that involved a FSM for debouncing as well as a FSM for the display logic. However, I was caught in some weird bug with sampling at the right time for building my keymap. I ultimately chose to rework my whole approach, which proved successful. In total I spent roughly 40 hours on this lab, of which probably 27 or 28 hours where spent on my initial approach which took much longer than expected.</p>
 </section>
 <section id="ai-prototype" class="level1">
 <h1>AI Prototype</h1>
 <div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -294,10 +479,10 @@ Note
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>For the first prompt that doesn’t provide the display and counter modules, the AI (Gemini) result placed the display in the module, and the encodings for each segment are actually correct and inverted for the anode driven display. It created two instances of segments and muxes them using the same signal that muxes the input switch, which is unnecessary hardware. Otherwise, it works, but it seems that the AI only thinks in terms of code functionality less so hardware.</p>
-<p>For the second prompt where Gemini has access to the counter and display modules, its output also works, but it introduces unnecessary sequential logic for the display. It tries to reset the display as well, but it’s not really necessary and just adds new hardware. Additionally, it counts to 100,000, but uses a 32 bit register to store the value, which is bigger than needed. The muxing and select logic is the same as what I have. Basically, AI can write working code, but cannot write efficient hardware.</p>
+<p>I used Gemini for the AI prototype questions. For the first prompt where Gemini was prompted to build the whole lab 3 in one shot, it built something that synthesizes, but it uses a lot of functions rather than modules, which is what I am more used to. At some point, the dimensions of the columns changes from 4 bits to 2 but it keeps rows as a one hot encoding. It properly implements a synchronizer, though not in a module, just in always_ff.&nbsp;It creates a FSM for scanning that also incorporates the logic for a valid button press that we want to display. It is a bit jumbled organization wise, but works. However, it does not implement any debouncing strategy. Surprisingly, it did better than I thought for the one shot attempt.</p>
+<p>For the second group of prompts where Gemini was prompted to build the lab in sections, it somehow did worse than the one shot approach. It hallucinated modules and the code generated from each prompt was not compatible with the code from other prompts in the same chat. I tried tweaking minor bugs, but even then it was still not synthetsizable. It feels that it produces better output by asking for everything all at once rather than in chunks.</p>
 </div>
 </div>
 </div>
