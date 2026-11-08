@@ -6,8 +6,11 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="author" content="Huanhuan Huang">
+<meta name="dcterms.date" content="2026-11-07">
+<meta name="description" content="Lab Report for E155 Lab 7">
 
-<title>lab7 – E155 Portfolio</title>
+<title>E155 Lab 7: Advanced Encryption Standard – E155 Portfolio</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -118,17 +121,182 @@ ul.task-list li input[type="checkbox"] {
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#design-and-testing-methodology" id="toc-design-and-testing-methodology" class="nav-link" data-scroll-target="#design-and-testing-methodology">Design and Testing Methodology</a></li>
+  <li><a href="#technical-documentation" id="toc-technical-documentation" class="nav-link" data-scroll-target="#technical-documentation">Technical Documentation</a></li>
+  <li><a href="#results-and-discussion" id="toc-results-and-discussion" class="nav-link" data-scroll-target="#results-and-discussion">Results and Discussion</a></li>
+  <li><a href="#ai-prototype" id="toc-ai-prototype" class="nav-link" data-scroll-target="#ai-prototype">AI Prototype</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">E155 Lab 7: Advanced Encryption Standard</h1>
+</div>
+
+<div>
+  <div class="description">
+    Lab Report for E155 Lab 7
+  </div>
+</div>
 
 
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Huanhuan Huang </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">November 7, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
 
 
+</header>
 
 
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>In this lab, the FPGA was programmed to encrypt a 128 bit text given a 128 bit key using AES, and then this was transmitted to the MCU through SPI between the boards.</p>
+</section>
+<section id="design-and-testing-methodology" class="level1">
+<h1>Design and Testing Methodology</h1>
+<p>There are four primary submodules in AES: subbytes, shift rows, mix columns, and add round keys. Shift rows, mix columns, and add round keys were written entirely combinationally, and subbytes was sequential.</p>
+<p>Subbytes was written using 16 instances of sbox, which finds the corresponding result of a 1 byte input on the look up table. Subbytes was triggered on clock because then the look up table becomes a block of ROM, which reduces the amount of hardware necessary, or else the large lookup table would be implemented on logic elements, which is much more costly.</p>
+<p>Another module was written for key expansion, which feeds in the key that is used for add round keys. A FSM was used for keyexpansion, because the new key generated for each round of the encryption depended on the key from the last round, so we needed two instances of keys, the old one and the current one. Every time the round incremented, the old key would take the value of the current key, and the current key would be calculated using the new old key.</p>
+<p>To minimize hardware instantiation, the four primary submodules were each only instantiated once, and then chained together. Since only subbytes is sequential, the round would increment every clock tick until the tenth round has completed.</p>
+</section>
+<section id="technical-documentation" class="level1">
+<h1>Technical Documentation</h1>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Top level block diagram
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/lab7_top_level_block_diagram.png" class="img-fluid figure-img"></p>
+<figcaption>top_level_block_diagram</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>AES core block diagram
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/lab7_core_block_diagram.png" class="img-fluid figure-img"></p>
+<figcaption>core_block_diagram</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>FSM
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/core_fsm.png" class="img-fluid figure-img"></p>
+<figcaption>fsm</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>AES Core waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="images/core_waveform.png" class="img-fluid figure-img"></p>
+<figcaption>aes_core_waveform</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>AES SPI waveform results
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p><img src="images/spi_waveform_full.png" class="img-fluid" alt="aes_spi_waveform"> <img src="images/spi_waveform_zoom.png" class="img-fluid" alt="aes_spi_waveform_zoomed"></p>
+</div>
+</div>
+</div>
+</section>
+<section id="results-and-discussion" class="level1">
+<h1>Results and Discussion</h1>
+<p>I spent roughly 19 or 20 hours working on this lab. My design works in simulation. It passes the aes core testbench as well as the aes spi testbench. Initially, I tried a different implementation, which primarily used sbox instead of sbox sync for key expansion and subbytes. The approach was to have only one look up table for sbox in hardware, and stall however many times necessary for all bytes that use sbox for that operation. I ran into a lot of syntax issues, so I ended up using sbox sync which has the look up table in ROM.</p>
+</section>
+<section id="ai-prototype" class="level1">
+<h1>AI Prototype</h1>
+<p>For the AI prototype, I used Gemini. The output from the prompt where the entire encryption standard was provided was very concise and clean, and did each step of key expansion clearly. On the other hand, the output from the prompt where only the pseudocode was provided used much weirder syntax. Everything was in a generate loop or in a function and used awkward indexing that more closely followed the pseudocode. The latter was able to recognize that the pseudocode came from AES and implemented the Rcon table without being asked for it.</p>
+
+
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
